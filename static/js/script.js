@@ -724,13 +724,9 @@ document.addEventListener("DOMContentLoaded", function () {
         let hasNewMessages = false;
         if (data.new_messages) {
           data.messages.forEach((msg) => {
-            console.log("Processing message:", msg);
             if (!processedMessageIds.has(msg.id)) {
               addMessage(msg.content, msg.is_user, msg.audio, true);
               processedMessageIds.add(msg.id);
-              hasNewMessages = true;
-
-              // 관리자 메시지일 경우 로딩 애니메이션 제거
               if (!msg.is_user) {
                 removeLoadingAnimation();
               }
@@ -748,12 +744,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Always update to server time if available
         if (data.server_time) {
-          lastCheckedTimestamp = Math.max(
-            lastCheckedTimestamp,
-            data.server_time
-          );
+          lastCheckedTimestamp = data.server_time;
         }
-
         console.log(
           "Updated last checked timestamp:",
           new Date(lastCheckedTimestamp * 1000).toISOString()
