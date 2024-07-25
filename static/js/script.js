@@ -60,9 +60,21 @@ document.addEventListener("DOMContentLoaded", function () {
   let lastCheckedTimestamp = 0;
   let messageIdCounter = 0;
   let currentLoadingAnimation = null;
+  let isSubmitting = false;
 
   const REPORT_INTERVAL = 2;
 
+  window.addEventListener("resize", function () {
+    // 화면 크기가 변경될 때 스크롤을 맨 아래로 이동
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  });
+
+  // 가상 키보드가 나타날 때 스크롤 조정
+  userInput.addEventListener("focus", function () {
+    setTimeout(function () {
+      window.scrollTo(0, document.body.scrollHeight);
+    }, 300); // 키보드가 완전히 나타날 때까지 약간의 지연 시간을 줍니다.
+  });
   // 함수 정의
   function playAudio(audioData) {
     if (!audioData) {
@@ -128,6 +140,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function sendMessage(message, isVoiceInput = false) {
+    if (isSubmitting) return; // 이미 제출 중이면 추가 제출 방지
+    isSubmitting = true;
     if (message && message.trim() !== "") {
       const tempId = generateTempId();
       addMessage(message, true, null, true, tempId);
@@ -155,6 +169,9 @@ document.addEventListener("DOMContentLoaded", function () {
           console.error("Error:", error);
           removeLoadingAnimation();
           addMessage("메시지 전송 중 오류가 발생했습니다.", false);
+        })
+        .finally(() => {
+          isSubmitting = false; // 제출 완료 후 플래그 리셋
         });
 
       userInput.value = "";
@@ -769,11 +786,12 @@ document.addEventListener("DOMContentLoaded", function () {
           console.log("No new messages");
         }
       });
-    }, 3000); // 매 3초마다 체크
+    }, 1000); // 매 1초마다 체크
   }
 
   // 이벤트 리스너
-  sendBtn.addEventListener("click", () => {
+  sendBtn.addEventListener("click", (e) => {
+    e.preventDefault(); // 기본 동작 방지
     const message = userInput.value.trim();
     if (message !== "") {
       sendMessage(message);
@@ -782,6 +800,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   userInput.addEventListener("keypress", function (e) {
     if (e.key === "Enter") {
+      e.preventDefault(); // 기본 동작 방지
       const message = userInput.value.trim();
       if (message !== "") {
         sendMessage(message);
