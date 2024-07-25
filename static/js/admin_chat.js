@@ -58,7 +58,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function sendMessage() {
     const message = messageInput.value.trim();
     if (message && currentUserId) {
-      console.log("Sending admin message:", message); // 로깅 추가
+      console.log("Sending admin message:", message);
+
       fetch("/admin/send_response", {
         method: "POST",
         headers: {
@@ -71,15 +72,17 @@ document.addEventListener("DOMContentLoaded", function () {
       })
         .then((response) => response.json())
         .then((data) => {
-          console.log("Server response:", data); // 로깅 추가
+          console.log("Server response:", data);
           if (data.success) {
             addMessageToChat({
               content: message,
               is_user: false,
-              timestamp: Date.now() / 1000,
+              timestamp: data.response.timestamp,
             });
             messageInput.value = "";
-            lastCheckedTimestamp = Date.now() / 1000;
+
+            // 관리자 메시지를 보낸 후 즉시 새 메시지 확인
+            checkForNewMessages();
           } else {
             console.error("Error sending message:", data.error);
           }
@@ -89,6 +92,14 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
   }
+  function startPeriodicChecks() {
+    setInterval(() => {
+      if (currentUserId) {
+        checkForNewMessages();
+      }
+    }, 5000); // 5초마다 체크
+  }
+
   function sendAdminResponse(userId, message) {
     fetch("/admin/send_response", {
       method: "POST",
@@ -134,5 +145,5 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // 주기적으로 새 메시지 확인
-  setInterval(checkForNewMessages, 5000); // 5초마다 확인
+  startPeriodicChecks();
 });
