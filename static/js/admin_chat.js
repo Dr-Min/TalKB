@@ -54,9 +54,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // sendMessage 함수 수정
   function sendMessage() {
     const message = messageInput.value.trim();
     if (message && currentUserId) {
+      console.log("Sending admin message:", message); // 로깅 추가
       fetch("/admin/send_response", {
         method: "POST",
         headers: {
@@ -69,6 +71,7 @@ document.addEventListener("DOMContentLoaded", function () {
       })
         .then((response) => response.json())
         .then((data) => {
+          console.log("Server response:", data); // 로깅 추가
           if (data.success) {
             addMessageToChat({
               content: message,
