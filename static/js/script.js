@@ -165,11 +165,16 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function loadInitialMessages() {
-    isInitialLoad = true;
-    lastCheckedTimestamp = 0;
-    checkForNewMessages();
+    console.log("Loading initial messages");
+    lastCheckedTimestamp = 0; // Reset timestamp for initial load
+    checkForNewMessages().then((hasNewMessages) => {
+      if (hasNewMessages) {
+        console.log("Initial messages loaded and displayed");
+      } else {
+        console.log("No initial messages");
+      }
+    });
   }
-
   function addLoadingAnimation() {
     const messageDiv = document.createElement("div");
     messageDiv.className = "message bot-message";
@@ -246,7 +251,7 @@ document.addEventListener("DOMContentLoaded", function () {
     chatContainer.appendChild(messageDiv);
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    if (!isUser && audioData && playAudioNow && !isInitialLoad) {
+    if (!isUser && audioData && playAudioNow) {
       playAudio(audioData);
     }
   }
@@ -675,7 +680,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const maxAttempts = 12; // 1분 동안 시도 (5초 간격으로 12번)
 
     function checkForResponse() {
-      console.log(`Checking for admin response, attempt ${attempts + 1}`); // 로깅 추가
+      console.log(`Checking for admin response, attempt ${attempts + 1}`);
       if (attempts >= maxAttempts) {
         removeLoadingAnimation();
         addMessage("응답을 받지 못했습니다. 나중에 다시 시도해주세요.", false);
@@ -684,9 +689,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
       checkForNewMessages()
         .then((hasAdminResponse) => {
-          console.log("Has admin response:", hasAdminResponse); // 로깅 추가
+          console.log("Has admin response:", hasAdminResponse);
           if (hasAdminResponse) {
-            removeLoadingAnimation();
+            // 로딩 애니메이션은 checkForNewMessages 내에서 제거됩니다.
           } else {
             attempts++;
             setTimeout(checkForResponse, 5000); // 5초 후 다시 시도
@@ -703,48 +708,76 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function checkForNewMessages() {
-    console.log("Checking for new messages..."); // 로깅 추가
-    return fetch(`/check_new_messages?last_checked=${lastCheckedTimestamp}`)
+    console.log("Checking for new messages...");
+    console.log(
+      "Last checked timestamp:",
+      new Date(lastCheckedTimestamp * 1000).toISOString()
+    );
+
+    return fetch(
+      `/check_new_messages?last_checked=${lastCheckedTimestamp}&_=${Date.now()}`
+    )
       .then((response) => response.json())
       .then((data) => {
-        console.log("Received response:", data); // 로깅 추가
-        let hasAdminResponse = false;
+        console.log("Received response:", data);
+
+        let hasNewMessages = false;
         if (data.new_messages) {
           data.messages.forEach((msg) => {
-            console.log("Processing message:", msg); // 로깅 추가
+            console.log("Processing message:", msg);
             if (!processedMessageIds.has(msg.id)) {
-              const existingMessage = document.querySelector(
-                `[data-message-id="${msg.id}"]`
-              );
-              if (!existingMessage) {
-                addMessage(msg.content, msg.is_user, msg.audio, !isInitialLoad);
-                processedMessageIds.add(msg.id);
-                if (!msg.is_user) {
-                  hasAdminResponse = true;
-                }
+              addMessage(msg.content, msg.is_user, msg.audio, true);
+              processedMessageIds.add(msg.id);
+              hasNewMessages = true;
+
+              // 관리자 메시지일 경우 로딩 애니메이션 제거
+              if (!msg.is_user) {
+                removeLoadingAnimation();
               }
-              lastCheckedTimestamp = Math.max(
-                lastCheckedTimestamp,
-                msg.timestamp
-              );
             }
           });
-          isInitialLoad = false;
+
+          // Update lastCheckedTimestamp to the latest message timestamp
+          if (data.messages.length > 0) {
+            lastCheckedTimestamp = Math.max(
+              lastCheckedTimestamp,
+              ...data.messages.map((msg) => msg.timestamp)
+            );
+          }
         }
-        return hasAdminResponse;
+
+        // Always update to server time if available
+        if (data.server_time) {
+          lastCheckedTimestamp = Math.max(
+            lastCheckedTimestamp,
+            data.server_time
+          );
+        }
+
+        console.log(
+          "Updated last checked timestamp:",
+          new Date(lastCheckedTimestamp * 1000).toISOString()
+        );
+
+        return hasNewMessages;
       })
       .catch((error) => {
         console.error("Error checking for new messages:", error);
         return false;
       });
   }
+
   function startPeriodicChecks() {
     setInterval(() => {
-      if (!currentLoadingAnimation) {
-        console.log("Performing periodic check for new messages"); // 로깅 추가
-        checkForNewMessages();
-      }
-    }, 5000);
+      console.log("Performing periodic check for new messages");
+      checkForNewMessages().then((hasNewMessages) => {
+        if (hasNewMessages) {
+          console.log("New messages received and displayed");
+        } else {
+          console.log("No new messages");
+        }
+      });
+    }, 3000); // 매 3초마다 체크
   }
 
   // 이벤트 리스너
@@ -874,5 +907,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // 초기 설정
   setupSpeechRecognition();
   checkLoginStatus();
+  loadInitialMessages();
   startPeriodicChecks();
 });
