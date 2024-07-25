@@ -675,6 +675,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const maxAttempts = 12; // 1분 동안 시도 (5초 간격으로 12번)
 
     function checkForResponse() {
+      console.log(`Checking for admin response, attempt ${attempts + 1}`); // 로깅 추가
       if (attempts >= maxAttempts) {
         removeLoadingAnimation();
         addMessage("응답을 받지 못했습니다. 나중에 다시 시도해주세요.", false);
@@ -683,6 +684,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       checkForNewMessages()
         .then((hasAdminResponse) => {
+          console.log("Has admin response:", hasAdminResponse); // 로깅 추가
           if (hasAdminResponse) {
             removeLoadingAnimation();
           } else {
@@ -701,12 +703,15 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function checkForNewMessages() {
+    console.log("Checking for new messages..."); // 로깅 추가
     return fetch(`/check_new_messages?last_checked=${lastCheckedTimestamp}`)
       .then((response) => response.json())
       .then((data) => {
+        console.log("Received response:", data); // 로깅 추가
         let hasAdminResponse = false;
         if (data.new_messages) {
           data.messages.forEach((msg) => {
+            console.log("Processing message:", msg); // 로깅 추가
             if (!processedMessageIds.has(msg.id)) {
               const existingMessage = document.querySelector(
                 `[data-message-id="${msg.id}"]`
@@ -733,10 +738,10 @@ document.addEventListener("DOMContentLoaded", function () {
         return false;
       });
   }
-
   function startPeriodicChecks() {
     setInterval(() => {
       if (!currentLoadingAnimation) {
+        console.log("Performing periodic check for new messages"); // 로깅 추가
         checkForNewMessages();
       }
     }, 5000);
