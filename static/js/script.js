@@ -1,26 +1,5 @@
-let isAutoMicOn = false; // 전역 변수로 선언
-
-function playAudio(audioData) {
-  if (!audioData) {
-    console.error("오디오 데이터가 없습니다.");
-    return;
-  }
-  const audio = new Audio("data:audio/mp3;base64," + audioData);
-  audio.play().catch((error) => {
-    console.error("오디오 재생 오류:", error);
-    isAITalking = false;
-    if (isAutoMicOn) {
-      startListening();
-    }
-  });
-  audio.onended = function () {
-    isAITalking = false;
-    if (isAutoMicOn) {
-      startListening();
-    }
-  };
-}
 document.addEventListener("DOMContentLoaded", function () {
+  // DOM 요소
   const chatContainer = document.getElementById("chat-container");
   const userInput = document.getElementById("user-input");
   const sendBtn = document.getElementById("send-btn");
@@ -53,18 +32,19 @@ document.addEventListener("DOMContentLoaded", function () {
   const backToLoginLink = document.getElementById("back-to-login");
   const resetPasswordBtn = document.getElementById("reset-password-btn");
 
+  // 상태 변수
+  let isAutoMicOn = false;
+  let isAITalking = false;
+  let currentAudio = null;
   let messageCount = 0;
   let isInitialLoad = true;
   let processedMessageIds = new Set();
   let tempMessageId = 0;
-
   let recognition;
   let isMicrophoneActive = false;
-  let isAITalking = false;
   let isLoading = false;
   let isListening = false;
   let isProcessing = false;
-  let currentAudio = null;
   let silenceTimer;
   let hasSpeechStarted = false;
   let sessionStartTime;
@@ -82,6 +62,66 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentLoadingAnimation = null;
 
   const REPORT_INTERVAL = 2;
+
+  // 함수 정의
+  function playAudio(audioData) {
+    if (!audioData) {
+      console.error("오디오 데이터가 없습니다.");
+      return;
+    }
+    stopCurrentAudioAndMic();
+
+    const audio = new Audio("data:audio/mp3;base64," + audioData);
+    currentAudio = audio;
+    isAITalking = true;
+
+    audio.play().catch((error) => {
+      console.error("오디오 재생 오류:", error);
+      isAITalking = false;
+      if (isAutoMicOn) {
+        startListening();
+      }
+    });
+
+    audio.onended = function () {
+      isAITalking = false;
+      if (isAutoMicOn) {
+        startListening();
+      }
+    };
+  }
+
+  function stopCurrentAudioAndMic() {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      currentAudio = null;
+    }
+    isAITalking = false;
+    stopListening();
+  }
+
+  function startListening() {
+    if (isAITalking) {
+      stopCurrentAudioAndMic();
+    }
+    if (!recognition) {
+      setupSpeechRecognition();
+    }
+    recognition.start();
+    isMicrophoneActive = true;
+    voiceBtn.classList.add("active");
+    console.log("음성 인식이 시작되었습니다.");
+  }
+
+  function stopListening() {
+    if (recognition) {
+      recognition.stop();
+      isMicrophoneActive = false;
+      voiceBtn.classList.remove("active");
+      console.log("음성 인식이 중지되었습니다.");
+    }
+  }
 
   function generateTempId() {
     return `temp_${tempMessageId++}`;
@@ -109,7 +149,6 @@ document.addEventListener("DOMContentLoaded", function () {
           }
           processedMessageIds.add(data.messageId);
           updateMessageId(tempId, data.messageId);
-          // checkForNewMessages 호출을 제거하고 대신 타이머를 설정합니다.
           waitForAdminResponse();
         })
         .catch((error) => {
@@ -211,6 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
       playAudio(audioData);
     }
   }
+
   function updateMessageId(tempId, realId) {
     const messageDiv = document.querySelector(`[data-temp-id="${tempId}"]`);
     if (messageDiv) {
@@ -306,51 +346,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }, silenceThreshold);
   }
-
-  function startListening() {
-    if (!recognition) {
-      setupSpeechRecognition();
-    }
-
-    recognition.start();
-    isMicrophoneActive = true;
-    voiceBtn.classList.add("active");
-    console.log("음성 인식이 시작되었습니다.");
-  }
-
-  function stopListening() {
-    if (recognition) {
-      recognition.stop();
-      isMicrophoneActive = false;
-      voiceBtn.classList.remove("active");
-      console.log("음성 인식이 중지되었습니다.");
-    }
-  }
-
-  function stopAITalking() {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
-    }
-    isAITalking = false;
-    isLoading = false;
-    console.log("AI 발화가 중지되었습니다.");
-    if (pendingMessage) {
-      showPendingMessageConfirmation();
-    }
-  }
-
-  voiceBtn.addEventListener("click", function () {
-    if (isAITalking || isLoading) {
-      stopAITalking();
-      return;
-    }
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  });
 
   function onLoginSuccess(username, userId) {
     isLoggedIn = true;
@@ -589,11 +584,11 @@ document.addEventListener("DOMContentLoaded", function () {
           msg.is_user ? "user-message" : "bot-message"
         }`;
         messageDiv.innerHTML = `
-          <div class="message-bubble">
-            ${msg.content}
-          </div>
-          <div class="message-time">${msg.timestamp}</div>
-        `;
+        <div class="message-bubble">
+          ${msg.content}
+        </div>
+        <div class="message-time">${msg.timestamp}</div>
+      `;
         historyContainer.appendChild(messageDiv);
       });
     });
@@ -616,152 +611,6 @@ document.addEventListener("DOMContentLoaded", function () {
         isLoadingHistory = false;
         loadingHistory.style.display = "none";
       });
-  }
-
-  sendBtn.addEventListener("click", () => {
-    const message = userInput.value.trim();
-    if (message !== "") {
-      sendMessage(message);
-    }
-  });
-
-  userInput.addEventListener("keypress", function (e) {
-    if (e.key === "Enter") {
-      const message = userInput.value.trim();
-      if (message !== "") {
-        sendMessage(message);
-      }
-    }
-  });
-
-  function clearAuthMessage() {
-    const authMessage = document.getElementById("auth-message");
-    if (authMessage) {
-      authMessage.textContent = "";
-      authMessage.className = "";
-    }
-  }
-
-  showSignupLink.addEventListener("click", function (e) {
-    e.preventDefault();
-    clearAuthMessage();
-    modalTitle.textContent = "Sign Up";
-    loginForm.style.display = "none";
-    signupForm.style.display = "block";
-  });
-
-  showLoginLink.addEventListener("click", function (e) {
-    e.preventDefault();
-    clearAuthMessage();
-    modalTitle.textContent = "Login";
-    signupForm.style.display = "none";
-    loginForm.style.display = "block";
-  });
-
-  autoMicToggle.addEventListener("click", function () {
-    isAutoMicOn = !isAutoMicOn;
-    autoMicToggle.textContent = isAutoMicOn ? "Auto Mic: ON" : "Auto Mic: OFF";
-    autoMicToggle.classList.toggle("active");
-    if (isAutoMicOn && !isAITalking && !isLoading) {
-      startListening();
-    } else if (!isAutoMicOn) {
-      stopListening();
-    }
-  });
-
-  loginBtn.addEventListener("click", login);
-  signupBtn.addEventListener("click", signup);
-
-  menuIcon.addEventListener("click", function () {
-    sidebar.style.width = "50%";
-  });
-
-  closeSidebar.addEventListener("click", function () {
-    sidebar.style.width = "0";
-  });
-
-  showHistory.addEventListener("click", function () {
-    historyModal.style.display = "block";
-    historyContainer.innerHTML = "<p>Loading history...</p>";
-    currentDate = null;
-    loadHistory();
-    console.log("History modal opened");
-  });
-
-  if (closeHistory) {
-    closeHistory.addEventListener("click", function () {
-      historyModal.style.display = "none";
-    });
-  }
-
-  if (historyContainer) {
-    historyContainer.addEventListener("scroll", () => {
-      if (historyContainer.scrollTop === 0 && !isLoadingHistory) {
-        loadHistory(currentDate);
-      }
-    });
-  }
-
-  if (showForgotPasswordLink) {
-    showForgotPasswordLink.addEventListener("click", function (e) {
-      e.preventDefault();
-      clearAuthMessage();
-      loginForm.style.display = "none";
-      signupForm.style.display = "none";
-      forgotPasswordForm.style.display = "block";
-      modalTitle.textContent = "Reset Password";
-    });
-  }
-
-  if (backToLoginLink) {
-    backToLoginLink.addEventListener("click", function (e) {
-      e.preventDefault();
-      clearAuthMessage();
-      forgotPasswordForm.style.display = "none";
-      loginForm.style.display = "block";
-      modalTitle.textContent = "Login";
-    });
-  }
-
-  if (resetPasswordBtn) {
-    resetPasswordBtn.addEventListener("click", function () {
-      const email = document.getElementById("reset-email").value;
-      const loadingAnimation = document.getElementById("loading-animation");
-      const authMessage = document.getElementById("auth-message");
-
-      if (!isValidEmail(email)) {
-        setMessage("Please enter a valid email address.", "error");
-        return;
-      }
-
-      loadingAnimation.style.display = "block";
-      resetPasswordBtn.disabled = true;
-      clearMessage();
-
-      fetch("/request_reset", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: email }),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.message === "Reset link sent to your email") {
-            setMessage(data.message, "success");
-          } else {
-            setMessage(data.message, "error");
-          }
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-          setMessage("An error occurred. Please try again.", "error");
-        })
-        .finally(() => {
-          loadingAnimation.style.display = "none";
-          resetPasswordBtn.disabled = false;
-        });
-    });
   }
 
   function setMessage(message, type) {
@@ -803,8 +652,6 @@ document.addEventListener("DOMContentLoaded", function () {
     signupForm.style.display = "none";
   }
 
-  checkLoginStatus();
-
   function logout() {
     fetch("/logout", {
       method: "POST",
@@ -822,17 +669,6 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .catch((error) => console.error("Logout error:", error));
   }
-
-  const logoutBtn = document.getElementById("logout-btn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", logout);
-  }
-
-  setupSpeechRecognition();
-  modalTitle.textContent = "Login";
-  loginForm.style.display = "block";
-  signupForm.style.display = "none";
-  authModal.style.display = "block";
 
   function waitForAdminResponse() {
     let attempts = 0;
@@ -905,5 +741,133 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }, 5000);
   }
+
+  // 이벤트 리스너
+  sendBtn.addEventListener("click", () => {
+    const message = userInput.value.trim();
+    if (message !== "") {
+      sendMessage(message);
+    }
+  });
+
+  userInput.addEventListener("keypress", function (e) {
+    if (e.key === "Enter") {
+      const message = userInput.value.trim();
+      if (message !== "") {
+        sendMessage(message);
+      }
+    }
+  });
+
+  voiceBtn.addEventListener("click", function () {
+    if (isAITalking) {
+      stopCurrentAudioAndMic();
+    } else if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  });
+
+  autoMicToggle.addEventListener("click", function () {
+    isAutoMicOn = !isAutoMicOn;
+    autoMicToggle.textContent = isAutoMicOn ? "Auto Mic: ON" : "Auto Mic: OFF";
+    autoMicToggle.classList.toggle("active");
+    if (isAutoMicOn && !isAITalking && !isLoading) {
+      startListening();
+    } else if (!isAutoMicOn) {
+      stopListening();
+    }
+  });
+
+  loginBtn.addEventListener("click", login);
+  signupBtn.addEventListener("click", signup);
+
+  showSignupLink.addEventListener("click", function (e) {
+    e.preventDefault();
+    clearMessage();
+    modalTitle.textContent = "Sign Up";
+    loginForm.style.display = "none";
+    signupForm.style.display = "block";
+  });
+
+  showLoginLink.addEventListener("click", function (e) {
+    e.preventDefault();
+    clearMessage();
+    modalTitle.textContent = "Login";
+    signupForm.style.display = "none";
+    loginForm.style.display = "block";
+  });
+
+  menuIcon.addEventListener("click", function () {
+    sidebar.style.width = "50%";
+  });
+
+  closeSidebar.addEventListener("click", function () {
+    sidebar.style.width = "0";
+  });
+
+  showHistory.addEventListener("click", function () {
+    historyModal.style.display = "block";
+    historyContainer.innerHTML = "<p>Loading history...</p>";
+    currentDate = null;
+    loadHistory();
+    console.log("History modal opened");
+  });
+
+  if (closeHistory) {
+    closeHistory.addEventListener("click", function () {
+      historyModal.style.display = "none";
+    });
+  }
+
+  if (historyContainer) {
+    historyContainer.addEventListener("scroll", () => {
+      if (historyContainer.scrollTop === 0 && !isLoadingHistory) {
+        loadHistory(currentDate);
+      }
+    });
+  }
+
+  if (showForgotPasswordLink) {
+    showForgotPasswordLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      clearMessage();
+      loginForm.style.display = "none";
+      signupForm.style.display = "none";
+      forgotPasswordForm.style.display = "block";
+      modalTitle.textContent = "Reset Password";
+    });
+  }
+
+  if (backToLoginLink) {
+    backToLoginLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      clearMessage();
+      forgotPasswordForm.style.display = "none";
+      loginForm.style.display = "block";
+      modalTitle.textContent = "Login";
+    });
+  }
+
+  if (resetPasswordBtn) {
+    resetPasswordBtn.addEventListener("click", function () {
+      const email = document.getElementById("reset-email").value;
+      if (!isValidEmail(email)) {
+        setMessage("Please enter a valid email address.", "error");
+        return;
+      }
+      requestPasswordReset(email);
+    });
+  }
+
+  const logoutBtn = document.getElementById("logout-btn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", logout);
+  }
+
+  // 초기 설정
+  setupSpeechRecognition();
+  checkLoginStatus();
   startPeriodicChecks();
 });
