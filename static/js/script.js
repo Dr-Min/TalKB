@@ -1,3 +1,5 @@
+let isAutoMicOn = false; // 전역 변수로 선언
+
 function playAudio(audioData) {
   if (!audioData) {
     console.error("오디오 데이터가 없습니다.");
@@ -62,7 +64,6 @@ document.addEventListener("DOMContentLoaded", function () {
   let isLoading = false;
   let isListening = false;
   let isProcessing = false;
-  let isAutoMicOn = false;
   let currentAudio = null;
   let silenceTimer;
   let hasSpeechStarted = false;
