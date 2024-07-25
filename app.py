@@ -336,12 +336,16 @@ def check_new_messages():
     else:
         last_checked = datetime.min.replace(tzinfo=KST)
 
+    print(f"Checking new messages. Last checked: {last_checked}")
+
     new_messages = Message.query.filter(
         Message.user_id == current_user.id,
         Message.timestamp > last_checked
     ).order_by(Message.timestamp).all()
 
-    print(f"Checking new messages. Last checked: {last_checked}, New messages count: {len(new_messages)}")  # 로깅 추가
+    print(f"Found {len(new_messages)} new messages")
+    for msg in new_messages:
+        print(f"Message ID: {msg.id}, Content: {msg.content}, Timestamp: {msg.timestamp}, Is User: {msg.is_user}")
 
     return jsonify({
         'new_messages': bool(new_messages),
@@ -351,7 +355,8 @@ def check_new_messages():
             'is_user': msg.is_user,
             'timestamp': msg.timestamp.timestamp(),
             'audio': msg.audio
-        } for msg in new_messages]
+        } for msg in new_messages],
+        'server_time': datetime.now(KST).timestamp()
     })
 
 @app.route('/update_usage_time', methods=['POST'])
