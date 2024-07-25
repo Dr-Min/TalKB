@@ -307,11 +307,13 @@ def send_admin_response():
         content=response_content,
         is_user=False,
         user_id=user.id,
-        audio=audio_base64,  # 오디오 데이터 저장
+        audio=audio_base64,
         timestamp=datetime.now(KST)
     )
     db.session.add(admin_response)
     db.session.commit()
+
+    print(f"Admin response sent: {admin_response.id}")  # 로깅 추가
 
     return jsonify({
         "success": True,
@@ -338,6 +340,8 @@ def check_new_messages():
         Message.user_id == current_user.id,
         Message.timestamp > last_checked
     ).order_by(Message.timestamp).all()
+
+    print(f"Checking new messages. Last checked: {last_checked}, New messages count: {len(new_messages)}")  # 로깅 추가
 
     return jsonify({
         'new_messages': bool(new_messages),
