@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (currentUserId) {
         checkForNewMessages();
       }
-    }, 5000); // 5초마다 체크
+    }, 1000); // 1초마다 체크
   }
 
   function sendAdminResponse(userId, message) {
