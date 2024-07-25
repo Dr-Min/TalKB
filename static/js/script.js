@@ -700,7 +700,8 @@ document.addEventListener("DOMContentLoaded", function () {
       console.log(`Checking for admin response, attempt ${attempts + 1}`);
       if (attempts >= maxAttempts) {
         removeLoadingAnimation();
-        addMessage("응답을 받지 못했습니다. 나중에 다시 시도해주세요.", false);
+        // 오류 메시지를 채팅 컨테이너에 추가하는 대신 콘솔에 로그만 남깁니다.
+        console.log("응답을 받지 못했습니다. 나중에 다시 시도해주세요.");
         return;
       }
 
@@ -708,7 +709,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((hasAdminResponse) => {
           console.log("Has admin response:", hasAdminResponse);
           if (hasAdminResponse) {
-            // 로딩 애니메이션은 checkForNewMessages 내에서 제거됩니다.
+            removeLoadingAnimation();
           } else {
             attempts++;
             setTimeout(checkForResponse, 5000); // 5초 후 다시 시도
