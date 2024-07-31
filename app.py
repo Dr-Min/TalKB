@@ -285,6 +285,7 @@ def send_admin_response():
     data = request.json
     user_id = data.get('user_id')
     response_content = data.get('response')
+    temp_id = data.get('temp_id')  # 클라이언트에서 보낸 임시 ID
 
     if not user_id or not response_content:
         return jsonify({"error": "Missing user ID or response content"}), 400
@@ -299,7 +300,7 @@ def send_admin_response():
         db.session.add(active_conversation)
         db.session.commit()
 
-    # TTS 생성
+    # TTS 생성 (기존 코드 유지)
     audio_base64 = text_to_speech(response_content)
 
     admin_response = Message(
@@ -313,7 +314,7 @@ def send_admin_response():
     db.session.add(admin_response)
     db.session.commit()
 
-    print(f"Admin response sent: {admin_response.id}")  # 로깅 추가
+    print(f"Admin response sent: {admin_response.id}")  # 로깅 유지
 
     return jsonify({
         "success": True,
@@ -324,7 +325,8 @@ def send_admin_response():
             'is_user': admin_response.is_user,
             'timestamp': admin_response.timestamp.timestamp(),
             'audio': admin_response.audio
-        }
+        },
+        "temp_id": temp_id  # 클라이언트에서 보낸 임시 ID 반환
     })
 
 @app.route('/check_new_messages', methods=['GET'])
@@ -336,21 +338,15 @@ def check_new_messages():
     else:
         last_checked = datetime.min.replace(tzinfo=KST)
 
-    print(f"Checking new messages. Last checked: {last_checked}")
-
     new_messages = Message.query.filter(
         Message.user_id == current_user.id,
         Message.timestamp > last_checked
-    ).order_by(Message.timestamp).all()
-
-    print(f"Found {len(new_messages)} new messages")
-    for msg in new_messages:
-        print(f"Message ID: {msg.id}, Content: {msg.content}, Timestamp: {msg.timestamp}, Is User: {msg.is_user}")
+    ).order_by(Message.timestamp.asc()).all()
 
     return jsonify({
         'new_messages': bool(new_messages),
         'messages': [{
-            'id': msg.id,
+            'id': msg.id,  # 메시지 ID 추가
             'content': msg.content,
             'is_user': msg.is_user,
             'timestamp': msg.timestamp.timestamp(),
