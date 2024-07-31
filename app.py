@@ -134,18 +134,18 @@ def text_to_speech(text):
     audio_base64 = base64.b64encode(audio_bytes.read()).decode('utf-8')
     return audio_base64
 
-@app.route('/admin/chat/<int:user_id>')
-@login_required
-def admin_chat(user_id):
-    if not current_user.is_admin:
-        abort(403)
-    user = User.query.get_or_404(user_id)
-    messages = Message.query.filter_by(user_id=user_id).order_by(Message.timestamp).all()
-    return jsonify([{
-        'content': msg.content,
-        'is_user': msg.is_user,
-        'timestamp': msg.timestamp.isoformat()
-    } for msg in messages])
+# @app.route('/admin/chat/<int:user_id>')
+# @login_required
+# def admin_chat(user_id):
+#     if not current_user.is_admin:
+#         abort(403)
+#     user = User.query.get_or_404(user_id)
+#     messages = Message.query.filter_by(user_id=user_id).order_by(Message.timestamp).all()
+#     return jsonify([{
+#         'content': msg.content,
+#         'is_user': msg.is_user,
+#         'timestamp': msg.timestamp.isoformat()
+#     } for msg in messages])
 
 class UserConversationsView(BaseView):
     @expose('/')
@@ -336,16 +336,19 @@ def check_new_messages():
     else:
         last_checked = datetime.min.replace(tzinfo=KST)
 
-    print(f"Checking new messages. Last checked: {last_checked}")
-
-    new_messages = Message.query.filter(
-        Message.user_id == current_user.id,
-        Message.timestamp > last_checked
-    ).order_by(Message.timestamp).all()
-
-    print(f"Found {len(new_messages)} new messages")
-    for msg in new_messages:
-        print(f"Message ID: {msg.id}, Content: {msg.content}, Timestamp: {msg.timestamp}, Is User: {msg.is_user}")
+    user_id = request.args.get('user_id', type=int)
+    if current_user.is_admin and user_id:
+        # 관리자가 특정 사용자의 메시지를 조회하는 경우
+        new_messages = Message.query.filter(
+            Message.user_id == user_id,
+            Message.timestamp > last_checked
+        ).order_by(Message.timestamp).all()
+    else:
+        # 일반 사용자 또는 관리자가 자신의 메시지를 조회하는 경우
+        new_messages = Message.query.filter(
+            Message.user_id == current_user.id,
+            Message.timestamp > last_checked
+        ).order_by(Message.timestamp).all()
 
     return jsonify({
         'new_messages': bool(new_messages),
@@ -358,6 +361,12 @@ def check_new_messages():
         } for msg in new_messages],
         'server_time': datetime.now(KST).timestamp()
     })
+
+# 기존 admin_chat 라우트 제거 (사용하지 않음)
+# @app.route('/admin/chat/<int:user_id>')
+# @login_required
+# def admin_chat(user_id):
+#     ...
 
 @app.route('/update_usage_time', methods=['POST'])
 @login_required
