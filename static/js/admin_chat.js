@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const chatMessages = document.getElementById("chat-messages");
   const messageInput = document.getElementById("admin-message-input");
   const sendButton = document.getElementById("admin-send-message");
+  let displayedMessageIds = new Set();
 
   userList.addEventListener("click", function (e) {
     if (e.target.classList.contains("user-link")) {
@@ -38,21 +39,22 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function addMessageToChat(message) {
+    if (displayedMessageIds.has(message.id)) {
+      return; // 이미 표시된 메시지는 무시
+    }
+
     const messageElement = document.createElement("div");
     messageElement.classList.add(
       "chat-message",
       message.is_user ? "user-message" : "admin-message"
     );
     messageElement.textContent = message.content;
+    messageElement.setAttribute("data-message-id", message.id);
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    displayedMessageIds.add(message.id);
   }
-  sendButton.addEventListener("click", sendMessage);
-  messageInput.addEventListener("keypress", function (e) {
-    if (e.key === "Enter") {
-      sendMessage();
-    }
-  });
 
   // sendMessage 함수 수정
   function sendMessage() {
@@ -97,7 +99,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (currentUserId) {
         checkForNewMessages();
       }
-    }, 1000); // 1초마다 체크
+    }, 1000); // 5초마다 체크
   }
 
   function sendAdminResponse(userId, message) {
@@ -131,11 +133,14 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((response) => response.json())
         .then((messages) => {
           messages.forEach((message) => {
-            addMessageToChat(message);
-            lastCheckedTimestamp = Math.max(
-              lastCheckedTimestamp,
-              message.timestamp
-            );
+            if (!displayedMessageIds.has(message.id)) {
+              addMessageToChat(message);
+              displayedMessageIds.add(message.id);
+              lastCheckedTimestamp = Math.max(
+                lastCheckedTimestamp,
+                message.timestamp
+              );
+            }
           });
         })
         .catch((error) =>
