@@ -5,7 +5,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const chatMessages = document.getElementById("chat-messages");
   const messageInput = document.getElementById("admin-message-input");
   const sendButton = document.getElementById("admin-send-message");
-  let displayedMessageIds = new Set();
 
   userList.addEventListener("click", function (e) {
     if (e.target.classList.contains("user-link")) {
@@ -39,39 +38,27 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function addMessageToChat(message) {
-    if (
-      !message.id.startsWith("temp_") &&
-      displayedMessageIds.has(message.id)
-    ) {
-      return; // 임시 ID가 아니고, 이미 표시된 메시지는 무시
-    }
-
     const messageElement = document.createElement("div");
     messageElement.classList.add(
       "chat-message",
       message.is_user ? "user-message" : "admin-message"
     );
     messageElement.textContent = message.content;
-    messageElement.setAttribute("data-message-id", message.id);
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    if (!message.id.startsWith("temp_")) {
-      displayedMessageIds.add(message.id);
-    }
   }
+  sendButton.addEventListener("click", sendMessage);
+  messageInput.addEventListener("keypress", function (e) {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
+  });
 
   // sendMessage 함수 수정
   function sendMessage() {
     const message = messageInput.value.trim();
     if (message && currentUserId) {
-      const tempId = "temp_" + Date.now();
-      addMessageToChat({
-        id: tempId,
-        content: message,
-        is_user: false,
-        timestamp: Date.now() / 1000,
-      });
+      console.log("Sending admin message:", message);
 
       fetch("/admin/send_response", {
         method: "POST",
@@ -81,14 +68,21 @@ document.addEventListener("DOMContentLoaded", function () {
         body: JSON.stringify({
           user_id: currentUserId,
           response: message,
-          temp_id: tempId,
         }),
       })
         .then((response) => response.json())
         .then((data) => {
+          console.log("Server response:", data);
           if (data.success) {
-            // 임시 ID를 실제 ID로 업데이트
-            updateMessageId(tempId, data.messageId);
+            addMessageToChat({
+              content: message,
+              is_user: false,
+              timestamp: data.response.timestamp,
+            });
+            messageInput.value = "";
+
+            // 관리자 메시지를 보낸 후 즉시 새 메시지 확인
+            checkForNewMessages();
           } else {
             console.error("Error sending message:", data.error);
           }
@@ -96,27 +90,14 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch((error) => {
           console.error("Error:", error);
         });
-
-      messageInput.value = "";
     }
   }
-
-  function updateMessageId(tempId, realId) {
-    const messageElement = document.querySelector(
-      `[data-message-id="${tempId}"]`
-    );
-    if (messageElement) {
-      messageElement.setAttribute("data-message-id", realId);
-      displayedMessageIds.add(realId);
-    }
-  }
-
   function startPeriodicChecks() {
     setInterval(() => {
       if (currentUserId) {
         checkForNewMessages();
       }
-    }, 1000); // 5초마다 체크
+    }, 1000); // 1초마다 체크
   }
 
   function sendAdminResponse(userId, message) {
@@ -150,14 +131,11 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((response) => response.json())
         .then((messages) => {
           messages.forEach((message) => {
-            if (!displayedMessageIds.has(message.id)) {
-              addMessageToChat(message);
-              displayedMessageIds.add(message.id);
-              lastCheckedTimestamp = Math.max(
-                lastCheckedTimestamp,
-                message.timestamp
-              );
-            }
+            addMessageToChat(message);
+            lastCheckedTimestamp = Math.max(
+              lastCheckedTimestamp,
+              message.timestamp
+            );
           });
         })
         .catch((error) =>
