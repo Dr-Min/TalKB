@@ -121,8 +121,9 @@ class MyAdminIndexView(AdminIndexView):
 # 음성 변환 함수
 def text_to_speech(text):
     response = client.audio.speech.create(
-        model="tts-1",
+        model="tts-1-hd",
         voice="nova",
+        speed=0.8,
         input=text
     )
 
