@@ -122,7 +122,7 @@ class MyAdminIndexView(AdminIndexView):
 def text_to_speech(text):
     response = client.audio.speech.create(
         model="tts-1",
-        voice="alloy",
+        voice="nova",
         input=text
     )
 
