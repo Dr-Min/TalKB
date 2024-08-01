@@ -123,7 +123,7 @@ def text_to_speech(text):
     response = client.audio.speech.create(
         model="tts-1-hd",
         voice="nova",
-        speed=0.8,
+        speed=1,
         input=text
     )
 
