@@ -22,8 +22,12 @@ document.addEventListener("DOMContentLoaded", function () {
     loadChatHistory(userId);
 
     // Highlight selected user
-    document.querySelectorAll(".user-link").forEach((el) => el.classList.remove("active"));
-    document.querySelector(`.user-link[data-user-id="${userId}"]`).classList.add("active");
+    document
+      .querySelectorAll(".user-link")
+      .forEach((el) => el.classList.remove("active"));
+    document
+      .querySelector(`.user-link[data-user-id="${userId}"]`)
+      .classList.add("active");
   }
 
   function loadChatHistory(userId) {
@@ -92,9 +96,14 @@ document.addEventListener("DOMContentLoaded", function () {
   function checkForNewMessages() {
     if (currentUserId) {
       console.log("Checking for new messages...");
-      console.log("Last checked timestamp:", new Date(lastCheckedTimestamp * 1000).toISOString());
+      console.log(
+        "Last checked timestamp:",
+        new Date(lastCheckedTimestamp * 1000).toISOString()
+      );
 
-      fetch(`/check_new_messages?last_checked=${lastCheckedTimestamp}&user_id=${currentUserId}&_=${Date.now()}`)
+      fetch(
+        `/check_new_messages?last_checked=${lastCheckedTimestamp}&user_id=${currentUserId}&_=${Date.now()}`
+      )
         .then((response) => response.json())
         .then((data) => {
           console.log("Received response:", data);
@@ -120,7 +129,10 @@ document.addEventListener("DOMContentLoaded", function () {
           if (data.server_time) {
             lastCheckedTimestamp = data.server_time;
           }
-          console.log("Updated last checked timestamp:", new Date(lastCheckedTimestamp * 1000).toISOString());
+          console.log(
+            "Updated last checked timestamp:",
+            new Date(lastCheckedTimestamp * 1000).toISOString()
+          );
         })
         .catch((error) => {
           console.error("Error checking for new messages:", error);
@@ -136,5 +148,38 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // 주기적으로 새 메시지 확인
+  // 기존 코드 ...
+
+  // 주기적으로 새 메시지 확인
   startPeriodicChecks();
+
+  // 여기서부터 새로운 코드를 추가합니다
+  function backupDatabase() {
+    fetch("/admin/backup_db")
+      .then((response) => response.blob())
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = "users.db";
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch((error) => console.error("Error:", error));
+  }
+
+  // 백업 버튼을 관리자 인터페이스에 추가
+  const backupButton = document.createElement("button");
+  backupButton.textContent = "DB";
+  backupButton.onclick = backupDatabase;
+  backupButton.className = "admin-button admin-backup-button";
+
+  // 버튼을 오른쪽 상단에 추가
+  const adminContainer = document.querySelector(".admin-chat-container");
+  adminContainer.style.position = "relative";
+  adminContainer.appendChild(backupButton);
+
+  backupButton.title = "Backup Database";
 });
